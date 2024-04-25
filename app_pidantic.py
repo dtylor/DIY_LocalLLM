@@ -45,13 +45,9 @@ def create(messages : List[dict], model_class: BaseModel, retry=2, temperature=0
 
     last_exception = None
     for i in range(retry+1):
-        #response = openai.ChatCompletion.create(messages=messages, temperature=temperature, **kwargs)
         response = requests.post(url, headers=headers, data = json.dumps(payload))
         #Extracting 'content' value from response
-        #print(response.text)
         result = response.json()
-        #content = result['choices'][0]['message']['content']
-        
         assistant_message= result['choices'][0]['message']
         content = assistant_message['content']
         try:
