@@ -24,7 +24,7 @@ def create(messages : List[dict], model_class: BaseModel, retry=2, temperature=0
 
     
     messages.append({"role"   : "system",
-                     "content": f"Please respond ONLY with valid json that conforms to this pydantic json_schema: {model_class.schema_json()}. Do not include additional text other than the object json as we will load this object with json.loads() and pydantic.Make sure not to return lists instead for strings."})
+                     "content": f"Please respond ONLY with valid json that conforms to this pydantic json_schema: {model_class.schema_json()}. Do not include additional text other than the object json as we will load this object with json.loads() and pydantic.Make sure not to return lists or dictionaries instead of strings."})
 
         #Headers
     headers = {
