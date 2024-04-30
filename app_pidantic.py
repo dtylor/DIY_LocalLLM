@@ -22,8 +22,9 @@ It will retry the task with error messages if the model does not produce appropr
 
 def create(messages : List[dict], model_class: BaseModel, retry=2, temperature=0, **kwargs) -> BaseModel:
 
+    
     messages.append({"role"   : "system",
-                     "content": f"Please respond ONLY with valid json that conforms to this pydantic json_schema: {model_class.schema_json()}. Do not include additional text other than the object json as we will load this object with json.loads() and pydantic."})
+                     "content": f"Please respond ONLY with valid json that conforms to this pydantic json_schema: {model_class.schema_json()}. Do not include additional text other than the object json as we will load this object with json.loads() and pydantic.Make sure not to return lists instead for strings."})
 
         #Headers
     headers = {
@@ -42,20 +43,24 @@ def create(messages : List[dict], model_class: BaseModel, retry=2, temperature=0
       "top_p": 0.95
     }
 
-
+    orig_messages = messages
+    
     last_exception = None
     for i in range(retry+1):
+        print("retry count:" + str(i))
         response = requests.post(url, headers=headers, data = json.dumps(payload))
         #Extracting 'content' value from response
         result = response.json()
         assistant_message= result['choices'][0]['message']
         content = assistant_message['content']
+        print(assistant_message)
         try:
             json_content = json.loads(content)
         except Exception as e:
             last_exception = e
             error_msg = f"json.loads exception: {e}"
             logging.error(error_msg)
+            messages = orig_messages + messages[-10:]
             messages.append(assistant_message)
             messages.append({"role"   : "system",
                             "content": error_msg})
@@ -64,13 +69,21 @@ def create(messages : List[dict], model_class: BaseModel, retry=2, temperature=0
             return model_class(**json_content)
         except ValidationError as e:
             last_exception = e
-            error_msg = f"pydantic exception: {e}"
-            logging.error(error_msg)
-            messages.append(assistant_message)            
+            messages = orig_messages + messages[-5:]
+            messages.append(assistant_message)
+            err_tot = "pydantic exception(s): "
+            for err in e.errors():
+            	err  =str(err)
+            	if len(err)>150:
+            		err = err[:150]
+            	err_tot = err_tot + ' ' + err
             messages.append({"role"   : "system",
-                            "content": error_msg})    
+                            "content": err_tot}) 
+            logging.error(err_tot)   
+         
     raise last_exception
-            
+         
+    
 
 class BookInformation(BaseModel):
     title: str = Field(description="The title of the book")
@@ -98,7 +111,8 @@ messages = [
     {"role": "user", "content": unstructured_text},
   ]
 
-out_class = create(messages, model_class, retry = 10,temperature = 0.7)
+out_class = create(messages, model_class, retry = 20,temperature = 0.7)
+print("success!")
 print(out_class)
 
 #first error with json format and fed error into context and retried
